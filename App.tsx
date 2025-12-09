@@ -65,19 +65,52 @@ export default function App() {
 
     try {
         const canvas = await html2canvas(element, { 
-            scale: 2,
+            scale: 2, // Higher scale for crisp text
             useCORS: true,
-            logging: false
+            logging: false,
+            // Critical: Modify the cloned document to remove UI scaling transforms
+            // This ensures the PDF captures the resume at 100% size (A4), not the scaled-down preview size.
+            onclone: (clonedDoc) => {
+                const target = clonedDoc.getElementById('resume-preview');
+                if (target) {
+                    target.style.transform = 'none'; // Remove scale(0.8) etc.
+                    target.style.margin = '0';       // Remove centering margins
+                    // Ensure it uses the full A4 width defined in the component
+                    target.style.width = '210mm';
+                    target.style.height = 'auto';    // Allow height to grow naturally
+                }
+            }
         });
+
         const imgData = canvas.toDataURL('image/png');
         const pdf = new jsPDF('p', 'mm', 'a4');
-        const pdfWidth = pdf.internal.pageSize.getWidth();
-        const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
         
-        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
+        
+        // Calculate the height of the image on the PDF based on A4 width
+        const imgProps = pdf.getImageProperties(imgData);
+        const imgHeight = (imgProps.height * pdfWidth) / imgProps.width;
+        
+        let heightLeft = imgHeight;
+        let position = 0;
+
+        // Add first page
+        pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
+        heightLeft -= pdfHeight;
+
+        // Add extra pages if the resume is longer than one A4 page
+        while (heightLeft > 0) {
+            position -= pdfHeight; // Shift the image up for the next page
+            pdf.addPage();
+            pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
+            heightLeft -= pdfHeight;
+        }
+
         pdf.save(`${resumeData.fullName.replace(/\s+/g, '_')}_Resume.pdf`);
     } catch (err) {
         console.error("PDF generation failed", err);
+        alert("Could not generate PDF. Please try again.");
     }
   };
 

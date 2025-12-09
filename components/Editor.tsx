@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { ResumeData } from '../types';
-import { FileText, Wand2, RefreshCw, Sparkles, Palette, Upload, User, Layout } from 'lucide-react';
+import { FileText, Wand2, RefreshCw, Sparkles, Palette, Upload, User, Layout, Plus, Lightbulb, X } from 'lucide-react';
 import { VocabLevel, THEME_COLORS } from '../App';
+import { generateExperienceSuggestions } from '../services/geminiService';
 
 interface EditorProps {
   resumeData: ResumeData;
@@ -35,6 +36,11 @@ const Editor: React.FC<EditorProps> = ({
   const [activeTab, setActiveTab] = useState<'visual' | 'design' | 'json' | 'import'>('visual');
   const [rawText, setRawText] = useState('');
   const [jsonError, setJsonError] = useState<string | null>(null);
+
+  // Suggestions State
+  const [activeSuggestionIndex, setActiveSuggestionIndex] = useState<number | null>(null);
+  const [suggestions, setSuggestions] = useState<{ text: string }[]>([]);
+  const [isGeneratingPhrases, setIsGeneratingPhrases] = useState(false);
 
   const handleJsonChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const val = e.target.value;
@@ -80,6 +86,30 @@ const Editor: React.FC<EditorProps> = ({
   const randomizeTheme = () => {
     const randomColor = THEME_COLORS[Math.floor(Math.random() * THEME_COLORS.length)];
     setThemeColor(randomColor);
+  };
+
+  const handleFetchSuggestions = async (index: number, role: string) => {
+    if (!role.trim()) return;
+    setActiveSuggestionIndex(index);
+    setIsGeneratingPhrases(true);
+    setSuggestions([]);
+    
+    try {
+        const phrases = await generateExperienceSuggestions(role);
+        setSuggestions(phrases.map(text => ({ text })));
+    } catch (e) {
+        console.error(e);
+    } finally {
+        setIsGeneratingPhrases(false);
+    }
+  };
+
+  const addSuggestionToDescription = (index: number, text: string) => {
+    const newExp = [...resumeData.experience];
+    const currentDesc = newExp[index].description;
+    // Add to end, filter empty lines to keep it clean
+    newExp[index].description = [...currentDesc.filter(d => d.trim() !== ''), text];
+    setResumeData({ ...resumeData, experience: newExp });
   };
 
   return (
@@ -176,42 +206,141 @@ const Editor: React.FC<EditorProps> = ({
             <section>
               <div className="flex justify-between items-center mb-3">
                  <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Experience</h3>
+                 <button 
+                    onClick={() => {
+                        const newExp = [...resumeData.experience, { company: '', role: '', start: '', end: '', description: [] }];
+                        setResumeData({ ...resumeData, experience: newExp });
+                    }}
+                    className="text-xs flex items-center gap-1 text-brand-600 hover:text-brand-700 font-medium"
+                 >
+                    <Plus size={14} /> Add Role
+                 </button>
               </div>
+              
               {resumeData.experience.map((exp, idx) => (
-                <div key={idx} className="mb-4 p-3 border border-gray-200 dark:border-gray-700 rounded bg-gray-50 dark:bg-gray-750/50">
-                  <div className="flex gap-2 mb-2">
+                <div key={idx} className="mb-6 p-4 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800/50">
+                  <div className="flex gap-2 mb-3">
                     <input
-                      className="flex-1 p-1 bg-transparent border-b border-transparent hover:border-gray-300 focus:border-brand-500 outline-none font-medium text-sm"
+                      className="flex-1 p-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-sm font-medium focus:ring-2 focus:ring-brand-500 outline-none"
                       value={exp.company}
                       onChange={(e) => {
                         const newExp = [...resumeData.experience];
                         newExp[idx].company = e.target.value;
-                        updateField('experience', newExp);
+                        setResumeData({ ...resumeData, experience: newExp });
                       }}
-                      placeholder="Company"
+                      placeholder="Company Name"
                     />
-                    <input
-                      className="flex-1 p-1 bg-transparent border-b border-transparent hover:border-gray-300 focus:border-brand-500 outline-none text-sm"
-                      value={exp.role}
+                    <div className="flex-1 relative">
+                        <input
+                        className="w-full p-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-sm focus:ring-2 focus:ring-brand-500 outline-none"
+                        value={exp.role}
+                        onChange={(e) => {
+                            const newExp = [...resumeData.experience];
+                            newExp[idx].role = e.target.value;
+                            setResumeData({ ...resumeData, experience: newExp });
+                        }}
+                        placeholder="Job Role (e.g. Waiter)"
+                        />
+                        {/* AI Trigger Button */}
+                        {exp.role.length > 2 && (
+                            <button
+                                onClick={() => handleFetchSuggestions(idx, exp.role)}
+                                className="absolute right-1 top-1 p-1.5 text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-900 rounded-md transition-colors"
+                                title="Get AI suggestions for this role"
+                            >
+                                <Sparkles size={16} />
+                            </button>
+                        )}
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2 mb-3">
+                     <input
+                      className="flex-1 p-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-sm outline-none focus:ring-2 focus:ring-brand-500"
+                      value={exp.start}
                       onChange={(e) => {
                         const newExp = [...resumeData.experience];
-                        newExp[idx].role = e.target.value;
-                        updateField('experience', newExp);
+                        newExp[idx].start = e.target.value;
+                        setResumeData({ ...resumeData, experience: newExp });
                       }}
-                      placeholder="Role"
+                      placeholder="Start (e.g. 2021)"
+                    />
+                    <input
+                      className="flex-1 p-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-sm outline-none focus:ring-2 focus:ring-brand-500"
+                      value={exp.end}
+                      onChange={(e) => {
+                        const newExp = [...resumeData.experience];
+                        newExp[idx].end = e.target.value;
+                        setResumeData({ ...resumeData, experience: newExp });
+                      }}
+                      placeholder="End (e.g. Present)"
                     />
                   </div>
+
+                  {/* AI Suggestions Panel */}
+                  {activeSuggestionIndex === idx && (
+                    <div className="mb-3 p-3 bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800 rounded-lg animate-in slide-in-from-top-2 duration-200">
+                        <div className="flex justify-between items-center mb-2">
+                            <h4 className="text-xs font-bold text-brand-700 dark:text-brand-300 flex items-center gap-2">
+                                <Lightbulb size={12} />
+                                AI Suggestions for "{exp.role}"
+                            </h4>
+                            <button 
+                                onClick={() => setActiveSuggestionIndex(null)}
+                                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                            >
+                                <X size={14} />
+                            </button>
+                        </div>
+                        
+                        {isGeneratingPhrases ? (
+                            <div className="py-4 text-center text-xs text-gray-500 flex items-center justify-center gap-2">
+                                <RefreshCw className="animate-spin" size={14} /> Generating professional phrases...
+                            </div>
+                        ) : suggestions.length > 0 ? (
+                            <div className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar pr-1">
+                                {suggestions.map((sug, sIdx) => (
+                                    <button
+                                        key={sIdx}
+                                        onClick={() => addSuggestionToDescription(idx, sug.text)}
+                                        className="w-full text-left p-2 text-xs hover:bg-white dark:hover:bg-gray-800 border border-transparent hover:border-brand-200 dark:hover:border-brand-700 rounded transition-all group flex items-start gap-2"
+                                    >
+                                        <div className="mt-0.5 text-green-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <Plus size={12} />
+                                        </div>
+                                        <span className="text-gray-700 dark:text-gray-300 leading-relaxed">{sug.text}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        ) : (
+                            <p className="text-xs text-gray-500">No suggestions found. Check your API connection.</p>
+                        )}
+                    </div>
+                  )}
+
                   <textarea
-                    rows={3}
-                    className="w-full p-2 text-xs bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded outline-none focus:ring-1 focus:ring-brand-500"
+                    rows={4}
+                    className="w-full p-3 text-xs leading-relaxed bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded outline-none focus:ring-2 focus:ring-brand-500"
                     value={exp.description.join('\n')}
                     onChange={(e) => {
                        const newExp = [...resumeData.experience];
                        newExp[idx].description = e.target.value.split('\n');
-                       updateField('experience', newExp);
+                       setResumeData({ ...resumeData, experience: newExp });
                     }}
-                    placeholder="Bullet points (one per line)"
+                    placeholder="• Responsibilities and achievements..."
                   />
+                  <div className="flex justify-end mt-1">
+                     <button 
+                        onClick={() => {
+                            const newExp = [...resumeData.experience];
+                            newExp.splice(idx, 1);
+                            setResumeData({ ...resumeData, experience: newExp });
+                        }}
+                        className="text-[10px] text-red-500 hover:text-red-600 font-medium"
+                     >
+                        Remove Role
+                     </button>
+                  </div>
                 </div>
               ))}
             </section>

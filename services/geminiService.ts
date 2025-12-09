@@ -138,3 +138,30 @@ export const analyzeResumeFit = async (resume: ResumeData, jobDescription: strin
     return null;
   }
 };
+
+export const generateExperienceSuggestions = async (role: string): Promise<string[]> => {
+  if (!apiKey) return [];
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: `Generate 5 professional, impact-driven resume bullet points for the role of "${role}". 
+      Focus on quantifiable achievements, strong action verbs, and specific skills.
+      Return purely a JSON array of strings.`,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+            type: Type.ARRAY,
+            items: { type: Type.STRING }
+        }
+      }
+    });
+
+    const jsonText = response.text;
+    if (!jsonText) return [];
+    return JSON.parse(jsonText) as string[];
+  } catch (error) {
+    console.error("Error generating suggestions:", error);
+    return [];
+  }
+};
