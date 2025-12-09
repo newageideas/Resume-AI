@@ -5,7 +5,8 @@ import ResumePreview from './components/ResumePreview';
 import AnalysisPanel from './components/AnalysisPanel';
 import ResumePDF from './components/ResumePDF';
 import { parseResumeFromText, analyzeResumeFit } from './services/geminiService';
-import { Download, Moon, Sun, Loader2, AlertCircle, CheckCircle2, Settings, Key } from 'lucide-react';
+import { saveResumeToCloud, loadLatestResume } from './services/dbService';
+import { Download, Moon, Sun, Loader2, AlertCircle, CheckCircle2, Settings, Key, Cloud, CloudUpload, CloudDownload, Database } from 'lucide-react';
 import { PDFDownloadLink } from '@react-pdf/renderer';
 
 export type VocabLevel = 'simple' | 'professional';
@@ -25,6 +26,8 @@ interface ToastState {
   type: 'success' | 'error';
 }
 
+const DEFAULT_DB_URL = "postgres://user:password@endpoint.neon.tech/neondb?connect_timeout=15";
+
 export default function App() {
   const [resumeData, setResumeData] = useState<ResumeData>(INITIAL_RESUME);
   const [jobDescription, setJobDescription] = useState<string>('');
@@ -32,6 +35,9 @@ export default function App() {
   
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isParsing, setIsParsing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isLoadingCloud, setIsLoadingCloud] = useState(false);
+
   const [darkMode, setDarkMode] = useState(false);
   const [toast, setToast] = useState<ToastState | null>(null);
 
@@ -39,8 +45,9 @@ export default function App() {
   const [vocabLevel, setVocabLevel] = useState<VocabLevel>('professional');
   const [themeColor, setThemeColor] = useState<string>(THEME_COLORS[0]);
   
-  // API Key State
+  // API Key & DB State
   const [apiKey, setApiKey] = useState(() => localStorage.getItem('gemini_api_key') || '');
+  const [databaseUrl, setDatabaseUrl] = useState(() => localStorage.getItem('database_url') || DEFAULT_DB_URL);
   const [showSettings, setShowSettings] = useState(false);
 
   // Dark mode effect
@@ -52,10 +59,11 @@ export default function App() {
     }
   }, [darkMode]);
 
-  // Save API Key to local storage
+  // Save Config to local storage
   useEffect(() => {
     localStorage.setItem('gemini_api_key', apiKey);
-  }, [apiKey]);
+    localStorage.setItem('database_url', databaseUrl);
+  }, [apiKey, databaseUrl]);
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     setToast({ message, type });
@@ -102,6 +110,47 @@ export default function App() {
     }
   };
 
+  const handleCloudSave = async () => {
+    if (!databaseUrl || databaseUrl.includes('user:password')) {
+        showToast("Please check your Database URL in settings.", "error");
+        setShowSettings(true);
+        return;
+    }
+    setIsSaving(true);
+    try {
+        await saveResumeToCloud(resumeData, databaseUrl);
+        showToast("Resume saved to cloud!", "success");
+    } catch (error) {
+        console.error(error);
+        showToast("Failed to save to cloud database.", "error");
+    } finally {
+        setIsSaving(false);
+    }
+  };
+
+  const handleCloudLoad = async () => {
+    if (!databaseUrl || databaseUrl.includes('user:password')) {
+        showToast("Please check your Database URL in settings.", "error");
+        setShowSettings(true);
+        return;
+    }
+    setIsLoadingCloud(true);
+    try {
+        const data = await loadLatestResume(databaseUrl);
+        if (data) {
+            setResumeData(data);
+            showToast("Resume loaded from cloud!", "success");
+        } else {
+            showToast("No saved resume found.", "error");
+        }
+    } catch (error) {
+        console.error(error);
+        showToast("Failed to load from cloud database.", "error");
+    } finally {
+        setIsLoadingCloud(false);
+    }
+  };
+
   return (
     <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200 relative">
       {/* Toast Notification */}
@@ -131,15 +180,32 @@ export default function App() {
                     value={apiKey}
                     onChange={(e) => setApiKey(e.target.value)}
                     placeholder="Enter your Gemini API Key"
-                    className="w-full pl-9 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-900 text-sm focus:ring-2 focus:ring-brand-500 outline-none"
+                    className="w-full pl-9 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-900 text-sm focus:ring-2 focus:ring-brand-500 outline-none dark:text-white"
                   />
                 </div>
                 <p className="text-xs text-gray-500 mt-2">
-                  Key is stored locally in your browser. Leave empty if you are using environment variables.
-                  <br />
                   <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-brand-600 hover:underline">
                     Get an API Key here
                   </a>
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Database Connection String (Neon/Postgres)
+                </label>
+                <div className="relative">
+                  <Database className="absolute left-3 top-2.5 text-gray-400" size={16} />
+                  <input 
+                    type="text"
+                    value={databaseUrl}
+                    onChange={(e) => setDatabaseUrl(e.target.value)}
+                    placeholder="postgres://..."
+                    className="w-full pl-9 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-900 text-sm focus:ring-2 focus:ring-brand-500 outline-none dark:text-white"
+                  />
+                </div>
+                <p className="text-xs text-gray-500 mt-2">
+                   Powered by <a href="https://neon.tech" target="_blank" className="underline hover:text-brand-600">Neon Serverless Postgres</a>.
                 </p>
               </div>
             </div>
@@ -159,9 +225,31 @@ export default function App() {
       <header className="h-16 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-6 shrink-0 z-10">
         <div className="flex items-center gap-2">
             <div className="w-8 h-8 bg-brand-600 rounded-lg flex items-center justify-center text-white font-bold">AI</div>
-            <h1 className="text-xl font-bold text-gray-900 dark:text-white">IMA FRee REsume</h1>
+            <h1 className="text-xl font-bold text-gray-900 dark:text-white hidden sm:block">IMA FRee REsume</h1>
         </div>
-        <div className="flex items-center gap-2 md:gap-4">
+        <div className="flex items-center gap-2 md:gap-3">
+            {/* Cloud Controls */}
+            <div className="flex items-center gap-1 mr-2 border-r border-gray-200 dark:border-gray-700 pr-3">
+                <button
+                    onClick={handleCloudLoad}
+                    disabled={isLoadingCloud}
+                    className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition"
+                    title="Load latest from DB"
+                >
+                    {isLoadingCloud ? <Loader2 size={14} className="animate-spin"/> : <CloudDownload size={14} />}
+                    <span className="hidden sm:inline">Load</span>
+                </button>
+                <button
+                    onClick={handleCloudSave}
+                    disabled={isSaving}
+                    className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-white bg-brand-600 hover:bg-brand-700 rounded-md transition shadow-sm"
+                    title="Save to DB"
+                >
+                    {isSaving ? <Loader2 size={14} className="animate-spin"/> : <CloudUpload size={14} />}
+                    <span className="hidden sm:inline">Save Cloud</span>
+                </button>
+            </div>
+
             <button 
               onClick={() => setShowSettings(true)}
               className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition"
