@@ -1,14 +1,20 @@
 import React from 'react';
-import { AnalysisResult } from '../types';
+import { AnalysisResult, ResumeData } from '../types';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import { CheckCircle, AlertTriangle, XCircle, Search } from 'lucide-react';
 
 interface AnalysisPanelProps {
   result: AnalysisResult | null;
   isAnalyzing: boolean;
+  resumeData: ResumeData;
+  setResumeData: (data: ResumeData) => void;
 }
 
-const AnalysisPanel: React.FC<AnalysisPanelProps> = ({ result, isAnalyzing }) => {
+const AnalysisPanel: React.FC<AnalysisPanelProps> = ({ result, isAnalyzing, resumeData, setResumeData }) => {
+  const updateField = (section: keyof ResumeData, value: any) => {
+    setResumeData({ ...resumeData, [section]: value });
+  };
+
   if (isAnalyzing) {
     return (
       <div className="flex flex-col items-center justify-center h-full p-8 text-center bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
@@ -115,10 +121,22 @@ const AnalysisPanel: React.FC<AnalysisPanelProps> = ({ result, isAnalyzing }) =>
               <XCircle size={16} className="text-red-500" /> Missing Keywords
             </h3>
             <div className="flex flex-wrap gap-2">
-              {result.missingKeywords.map((k, i) => (
-                <span key={i} className="px-2 py-1 text-xs font-medium text-red-700 bg-red-50 dark:bg-red-900/20 dark:text-red-300 rounded border border-red-100 dark:border-red-800">
-                  {k}
-                </span>
+              {result.missingKeywords.map((word, i) => (
+                <button 
+                  key={i} 
+                  onClick={() => {
+                    // Check if skill exists, if not add it
+                    const currentSkills = resumeData.skills || []; // Ensure skills array exists
+                    if (!currentSkills.includes(word)) {
+                      updateField('skills', [...currentSkills, word]);
+                    }
+                  }}
+                  className="px-2 py-1 bg-white dark:bg-gray-800 border border-red-200 dark:border-red-800 hover:border-brand-500 hover:text-brand-600 text-red-600 dark:text-red-300 text-xs rounded-md font-mono transition-colors cursor-pointer flex items-center gap-1 group"
+                  title="Click to add to skills"
+                >
+                  <span className="group-hover:hidden">+</span>
+                  {word}
+                </button>
               ))}
             </div>
           </div>

@@ -171,7 +171,12 @@ export default function App() {
 
             {/* Right: Analysis */}
             <div className="lg:col-span-3 h-full overflow-hidden border-l border-gray-200 dark:border-gray-700 p-4 bg-white dark:bg-gray-800">
-                <AnalysisPanel result={analysisResult} isAnalyzing={isAnalyzing} />
+                <AnalysisPanel 
+                  result={analysisResult} 
+                  isAnalyzing={isAnalyzing} 
+                  resumeData={resumeData}
+                  setResumeData={setResumeData}
+                />
             </div>
         </div>
       </main>

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ResumeData } from '../types';
-import { FileText, Wand2, RefreshCw, Sparkles, Palette, Upload, User, Layout, Plus, Lightbulb, X } from 'lucide-react';
+import { FileText, Wand2, RefreshCw, Sparkles, Palette, Upload, User, Layout, Plus, Lightbulb, X, Briefcase, Calendar, ChevronDown, Clock } from 'lucide-react';
 import { VocabLevel, THEME_COLORS } from '../App';
 import { generateExperienceSuggestions } from '../services/geminiService';
 
@@ -146,6 +146,43 @@ const Editor: React.FC<EditorProps> = ({
       <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
         {activeTab === 'visual' && (
           <div className="space-y-6">
+
+            {/* --- NEW JOB TRACKER WIDGET --- */}
+            <div className="bg-gradient-to-r from-gray-900 to-gray-800 dark:from-gray-800 dark:to-gray-900 rounded-lg p-4 text-white shadow-lg mb-6">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2 text-brand-200">
+                  <Briefcase size={16} />
+                  <span className="text-xs font-bold uppercase tracking-wider">Application Status</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs opacity-70">
+                  <Clock size={14} />
+                  <span>Last updated: Just now</span>
+                </div>
+              </div>
+              
+              <div className="flex gap-3">
+                <div className="relative flex-1 group">
+                  <select 
+                    className="w-full appearance-none bg-gray-700/50 border border-gray-600 hover:border-brand-400 text-sm rounded px-3 py-2 outline-none focus:ring-1 focus:ring-brand-500 transition-all cursor-pointer"
+                    // In a real app, bind this to resumeData.status
+                    defaultValue="draft"
+                  >
+                    <option value="draft">Drafting</option>
+                    <option value="applied">Applied</option>
+                    <option value="interviewing">Interviewing</option>
+                    <option value="offer">Offer Received</option>
+                  </select>
+                  <ChevronDown size={14} className="absolute right-3 top-3 text-gray-400 pointer-events-none group-hover:text-white" />
+                </div>
+                
+                <button className="flex items-center gap-2 px-4 py-2 bg-brand-600 hover:bg-brand-500 rounded text-xs font-bold uppercase tracking-wide transition-all shadow-md hover:shadow-brand-500/20">
+                  <Calendar size={14} />
+                  Set Reminder
+                </button>
+              </div>
+            </div>
+            {/* ------------------------------- */}
+
             {/* Basic Info */}
             <section>
               <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Basics</h3>
