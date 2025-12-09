@@ -5,7 +5,7 @@ import ResumePreview from './components/ResumePreview';
 import AnalysisPanel from './components/AnalysisPanel';
 import ResumePDF from './components/ResumePDF';
 import { parseResumeFromText, analyzeResumeFit } from './services/geminiService';
-import { Download, Moon, Sun, Loader2 } from 'lucide-react';
+import { Download, Moon, Sun, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { PDFDownloadLink } from '@react-pdf/renderer';
 
 export type VocabLevel = 'simple' | 'professional';
@@ -20,6 +20,11 @@ export const THEME_COLORS = [
   '#0891b2', // Cyan
 ];
 
+interface ToastState {
+  message: string;
+  type: 'success' | 'error';
+}
+
 export default function App() {
   const [resumeData, setResumeData] = useState<ResumeData>(INITIAL_RESUME);
   const [jobDescription, setJobDescription] = useState<string>('');
@@ -28,6 +33,7 @@ export default function App() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isParsing, setIsParsing] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
+  const [toast, setToast] = useState<ToastState | null>(null);
 
   // New features state
   const [vocabLevel, setVocabLevel] = useState<VocabLevel>('professional');
@@ -42,30 +48,60 @@ export default function App() {
     }
   }, [darkMode]);
 
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 4000);
+  };
+
   const handleParse = async (text: string) => {
     setIsParsing(true);
-    const data = await parseResumeFromText(text);
-    if (data) {
-      setResumeData(data);
+    try {
+      const data = await parseResumeFromText(text);
+      if (data) {
+        setResumeData(data);
+        showToast("Resume parsed successfully!", "success");
+      }
+    } catch (error) {
+      showToast((error as Error).message || "Failed to parse resume.", "error");
+    } finally {
+      setIsParsing(false);
     }
-    setIsParsing(false);
   };
 
   const handleAnalyze = async () => {
-    if (!jobDescription.trim()) return;
+    if (!jobDescription.trim()) {
+      showToast("Please enter a job description first.", "error");
+      return;
+    }
     setIsAnalyzing(true);
-    const result = await analyzeResumeFit(resumeData, jobDescription);
-    setAnalysisResult(result);
-    setIsAnalyzing(false);
+    try {
+      const result = await analyzeResumeFit(resumeData, jobDescription);
+      if (result) {
+        setAnalysisResult(result);
+        showToast("Analysis complete!", "success");
+      }
+    } catch (error) {
+      showToast((error as Error).message || "Analysis failed.", "error");
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   return (
-    <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
+    <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200 relative">
+      {/* Toast Notification */}
+      {toast && (
+        <div className={`fixed bottom-4 right-4 px-4 py-3 rounded-lg shadow-lg text-white text-sm font-medium z-50 animate-in slide-in-from-bottom-5 flex items-center gap-2 ${toast.type === 'error' ? 'bg-red-600' : 'bg-green-600'}`}>
+          {toast.type === 'error' ? <AlertCircle size={18} /> : <CheckCircle2 size={18} />}
+          {toast.message}
+        </div>
+      )}
+
       {/* Header */}
       <header className="h-16 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-6 shrink-0 z-10">
         <div className="flex items-center gap-2">
             <div className="w-8 h-8 bg-brand-600 rounded-lg flex items-center justify-center text-white font-bold">AI</div>
-            <h1 className="text-xl font-bold text-gray-900 dark:text-white">Smart Resume</h1>
+            <h1 className="text-xl font-bold text-gray-900 dark:text-white">IMA FRee REsume</h1>
         </div>
         <div className="flex items-center gap-4">
             <button 
@@ -108,6 +144,7 @@ export default function App() {
                     setVocabLevel={setVocabLevel}
                     themeColor={themeColor}
                     setThemeColor={setThemeColor}
+                    onShowToast={showToast}
                 />
             </div>
 

@@ -1,5 +1,5 @@
 {
-  "name": "Smart Resume AI",
+  "name": "IMA FRee REsume",
   "description": "An intelligent resume builder and grader powered by Gemini. Parse unstructured text into professional resumes, get real-time scoring against job descriptions, and export to PDF.",
   "requestFramePermissions": []
 }

@@ -16,7 +16,8 @@ const resumeSchema: Schema = {
         phone: { type: Type.STRING },
         location: { type: Type.STRING },
         linkedin: { type: Type.STRING },
-        website: { type: Type.STRING }
+        website: { type: Type.STRING },
+        photo: { type: Type.STRING }
       },
       required: ["email"]
     },
@@ -78,10 +79,13 @@ const analysisSchema: Schema = {
   }
 };
 
-export const parseResumeFromText = async (text: string): Promise<ResumeData | null> => {
+const cleanJsonString = (str: string): string => {
+  return str.replace(/```json\n?|\n?```/g, '').trim();
+};
+
+export const parseResumeFromText = async (text: string): Promise<ResumeData> => {
   if (!apiKey) {
-    console.error("API Key missing");
-    return null;
+    throw new Error("API Key is missing. Please check your configuration.");
   }
 
   try {
@@ -97,18 +101,18 @@ export const parseResumeFromText = async (text: string): Promise<ResumeData | nu
     });
 
     const jsonText = response.text;
-    if (!jsonText) return null;
-    return JSON.parse(jsonText) as ResumeData;
+    if (!jsonText) throw new Error("AI returned empty response.");
+    
+    return JSON.parse(cleanJsonString(jsonText)) as ResumeData;
   } catch (error) {
     console.error("Error parsing resume:", error);
-    return null;
+    throw new Error("Failed to parse resume content. Please ensure the text is clear and try again.");
   }
 };
 
-export const analyzeResumeFit = async (resume: ResumeData, jobDescription: string): Promise<AnalysisResult | null> => {
+export const analyzeResumeFit = async (resume: ResumeData, jobDescription: string): Promise<AnalysisResult> => {
   if (!apiKey) {
-    console.error("API Key missing");
-    return null;
+    throw new Error("API Key is missing. Please check your configuration.");
   }
 
   try {
@@ -131,16 +135,17 @@ export const analyzeResumeFit = async (resume: ResumeData, jobDescription: strin
     });
 
     const jsonText = response.text;
-    if (!jsonText) return null;
-    return JSON.parse(jsonText) as AnalysisResult;
+    if (!jsonText) throw new Error("AI returned empty response.");
+    
+    return JSON.parse(cleanJsonString(jsonText)) as AnalysisResult;
   } catch (error) {
     console.error("Error analyzing resume:", error);
-    return null;
+    throw new Error("Failed to analyze resume. Please try again.");
   }
 };
 
 export const generateExperienceSuggestions = async (role: string): Promise<string[]> => {
-  if (!apiKey) return [];
+  if (!apiKey) throw new Error("API Key is missing.");
 
   try {
     const response = await ai.models.generateContent({
@@ -158,10 +163,11 @@ export const generateExperienceSuggestions = async (role: string): Promise<strin
     });
 
     const jsonText = response.text;
-    if (!jsonText) return [];
-    return JSON.parse(jsonText) as string[];
+    if (!jsonText) throw new Error("AI returned empty response.");
+    
+    return JSON.parse(cleanJsonString(jsonText)) as string[];
   } catch (error) {
     console.error("Error generating suggestions:", error);
-    return [];
+    throw new Error("Failed to generate suggestions.");
   }
 };

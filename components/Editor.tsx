@@ -17,6 +17,7 @@ interface EditorProps {
   setVocabLevel: (level: VocabLevel) => void;
   themeColor: string;
   setThemeColor: (color: string) => void;
+  onShowToast: (message: string, type: 'success' | 'error') => void;
 }
 
 const Editor: React.FC<EditorProps> = ({ 
@@ -31,7 +32,8 @@ const Editor: React.FC<EditorProps> = ({
   vocabLevel,
   setVocabLevel,
   themeColor,
-  setThemeColor
+  setThemeColor,
+  onShowToast
 }) => {
   const [activeTab, setActiveTab] = useState<'visual' | 'design' | 'json' | 'import'>('visual');
   const [rawText, setRawText] = useState('');
@@ -99,6 +101,8 @@ const Editor: React.FC<EditorProps> = ({
         setSuggestions(phrases.map(text => ({ text })));
     } catch (e) {
         console.error(e);
+        onShowToast("Failed to generate suggestions. Please check your connection and try again.", "error");
+        setActiveSuggestionIndex(null);
     } finally {
         setIsGeneratingPhrases(false);
     }
@@ -449,23 +453,20 @@ const Editor: React.FC<EditorProps> = ({
                         />
                         <button 
                           onClick={() => updateContact('photo', '')}
-                          className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
                         >
-                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                          <X size={12} />
                         </button>
                       </div>
                     ) : (
-                      <div className="w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-400">
-                        <User size={24} />
-                      </div>
-                    )}
-                    <div className="flex-1">
-                      <label className="cursor-pointer inline-flex items-center gap-2 px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-xs font-medium hover:bg-gray-50 dark:hover:bg-gray-600 transition">
-                        <Upload size={14} />
-                        Upload Photo
-                        <input type="file" className="hidden" accept="image/*" onChange={handlePhotoUpload} />
+                      <label className="w-16 h-16 flex items-center justify-center border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:border-brand-500 hover:bg-brand-50 dark:hover:bg-gray-700 transition">
+                         <Upload size={20} className="text-gray-400" />
+                         <input type="file" className="hidden" accept="image/*" onChange={handlePhotoUpload} />
                       </label>
-                      <p className="text-xs text-gray-500 mt-1">Recommended: Square JPG/PNG</p>
+                    )}
+                    <div>
+                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Profile Picture</p>
+                        <p className="text-xs text-gray-500">Optional. JPG or PNG, max 2MB.</p>
                     </div>
                   </div>
                 </div>
@@ -473,26 +474,26 @@ const Editor: React.FC<EditorProps> = ({
                 <hr className="border-gray-200 dark:border-gray-700" />
 
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
+                   <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Accent Color
                   </label>
-                  <div className="flex flex-wrap gap-2 mb-3">
-                    {THEME_COLORS.map(color => (
-                      <button
-                        key={color}
-                        onClick={() => setThemeColor(color)}
-                        className={`w-8 h-8 rounded-full border-2 transition-transform hover:scale-110 ${themeColor === color ? 'border-gray-900 dark:border-white scale-110' : 'border-transparent'}`}
-                        style={{ backgroundColor: color }}
-                      />
+                  <div className="flex gap-2 flex-wrap">
+                    {THEME_COLORS.map((c) => (
+                        <button
+                            key={c}
+                            onClick={() => setThemeColor(c)}
+                            className={`w-8 h-8 rounded-full border-2 ${themeColor === c ? 'border-gray-900 dark:border-white scale-110' : 'border-transparent hover:scale-110'} transition-all shadow-sm`}
+                            style={{ backgroundColor: c }}
+                        />
                     ))}
+                    <button 
+                        onClick={randomizeTheme}
+                        className="w-8 h-8 rounded-full border border-gray-300 dark:border-gray-600 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                        title="Random Color"
+                    >
+                        <RefreshCw size={14} className="text-gray-500" />
+                    </button>
                   </div>
-                  <button
-                    onClick={randomizeTheme}
-                    className="w-full py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition flex items-center justify-center gap-2"
-                  >
-                    <RefreshCw size={14} />
-                    Randomize Style
-                  </button>
                 </div>
 
               </div>
@@ -501,40 +502,49 @@ const Editor: React.FC<EditorProps> = ({
         )}
 
         {activeTab === 'json' && (
-          <div className="h-full flex flex-col">
-            <p className="text-xs text-gray-500 mb-2">Directly edit the data structure.</p>
+          <div className="space-y-4">
+             <div className="flex items-center gap-2 mb-2">
+                <FileText size={18} className="text-brand-600" />
+                <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100">JSON Data</h3>
+              </div>
+            <p className="text-xs text-gray-500">
+              Directly edit the JSON data structure. Useful for debugging or bulk updates.
+            </p>
             <textarea
-              className="flex-1 w-full p-4 font-mono text-xs bg-gray-900 text-gray-200 rounded-lg outline-none resize-none"
               value={JSON.stringify(resumeData, null, 2)}
               onChange={handleJsonChange}
+              className="w-full h-96 p-3 text-xs font-mono bg-gray-900 text-green-400 rounded-lg border border-gray-700 outline-none focus:border-brand-500"
             />
             {jsonError && (
-              <div className="mt-2 p-2 text-xs text-red-600 bg-red-50 rounded border border-red-200">
-                Invalid JSON: {jsonError}
+              <div className="p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-200 text-xs rounded border border-red-200 dark:border-red-800">
+                Error: {jsonError}
               </div>
             )}
           </div>
         )}
 
         {activeTab === 'import' && (
-          <div className="flex flex-col h-full">
-            <div className="flex items-center gap-2 mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 rounded-lg text-sm">
-              <Wand2 size={18} />
-              <p>Paste your old resume text or LinkedIn export below. Gemini AI will restructure it.</p>
-            </div>
+          <div className="space-y-4">
+             <div className="flex items-center gap-2 mb-2">
+                <Wand2 size={18} className="text-brand-600" />
+                <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100">Smart Import</h3>
+              </div>
+            <p className="text-xs text-gray-500">
+              Paste your raw resume text (from LinkedIn, PDF copy-paste, or old resume) and let AI structure it for you.
+            </p>
             <textarea
-              className="flex-1 w-full p-4 text-sm bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg outline-none resize-none focus:ring-2 focus:ring-brand-500"
-              placeholder="Paste raw resume text here..."
               value={rawText}
               onChange={(e) => setRawText(e.target.value)}
+              placeholder="Paste raw resume text here..."
+              className="w-full h-64 p-3 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 focus:ring-2 focus:ring-brand-500 outline-none resize-none"
             />
             <button
               onClick={handleImport}
               disabled={isProcessing || !rawText.trim()}
-              className="mt-4 w-full py-3 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition flex items-center justify-center gap-2"
+              className="w-full py-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition flex items-center justify-center gap-2"
             >
-              {isProcessing ? <RefreshCw className="animate-spin" size={18} /> : <Wand2 size={18} />}
-              {isProcessing ? 'Processing...' : 'Parse with AI'}
+              {isProcessing ? <RefreshCw className="animate-spin" size={16} /> : <Wand2 size={16} />}
+              {isProcessing ? 'Parsing with AI...' : 'Parse Resume'}
             </button>
           </div>
         )}
