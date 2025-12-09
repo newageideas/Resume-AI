@@ -1,8 +1,13 @@
 import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { ResumeData, AnalysisResult } from "../types";
 
-const apiKey = process.env.API_KEY || '';
-const ai = new GoogleGenAI({ apiKey });
+const getAiClient = (userKey?: string) => {
+  const key = userKey || process.env.API_KEY;
+  if (!key) {
+    throw new Error("API Key is missing. Please set it in Settings or configure your environment.");
+  }
+  return new GoogleGenAI({ apiKey: key });
+};
 
 const resumeSchema: Schema = {
   type: Type.OBJECT,
@@ -83,12 +88,9 @@ const cleanJsonString = (str: string): string => {
   return str.replace(/```json\n?|\n?```/g, '').trim();
 };
 
-export const parseResumeFromText = async (text: string): Promise<ResumeData> => {
-  if (!apiKey) {
-    throw new Error("API Key is missing. Please check your configuration.");
-  }
-
+export const parseResumeFromText = async (text: string, apiKey?: string): Promise<ResumeData> => {
   try {
+    const ai = getAiClient(apiKey);
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: `Parse the following resume text into a structured JSON format. 
@@ -106,16 +108,13 @@ export const parseResumeFromText = async (text: string): Promise<ResumeData> => 
     return JSON.parse(cleanJsonString(jsonText)) as ResumeData;
   } catch (error) {
     console.error("Error parsing resume:", error);
-    throw new Error("Failed to parse resume content. Please ensure the text is clear and try again.");
+    throw error;
   }
 };
 
-export const analyzeResumeFit = async (resume: ResumeData, jobDescription: string): Promise<AnalysisResult> => {
-  if (!apiKey) {
-    throw new Error("API Key is missing. Please check your configuration.");
-  }
-
+export const analyzeResumeFit = async (resume: ResumeData, jobDescription: string, apiKey?: string): Promise<AnalysisResult> => {
   try {
+    const ai = getAiClient(apiKey);
     const resumeStr = JSON.stringify(resume);
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
@@ -140,14 +139,13 @@ export const analyzeResumeFit = async (resume: ResumeData, jobDescription: strin
     return JSON.parse(cleanJsonString(jsonText)) as AnalysisResult;
   } catch (error) {
     console.error("Error analyzing resume:", error);
-    throw new Error("Failed to analyze resume. Please try again.");
+    throw error;
   }
 };
 
-export const generateExperienceSuggestions = async (role: string): Promise<string[]> => {
-  if (!apiKey) throw new Error("API Key is missing.");
-
+export const generateExperienceSuggestions = async (role: string, apiKey?: string): Promise<string[]> => {
   try {
+    const ai = getAiClient(apiKey);
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: `Generate 5 professional, impact-driven resume bullet points for the role of "${role}". 
@@ -168,6 +166,6 @@ export const generateExperienceSuggestions = async (role: string): Promise<strin
     return JSON.parse(cleanJsonString(jsonText)) as string[];
   } catch (error) {
     console.error("Error generating suggestions:", error);
-    throw new Error("Failed to generate suggestions.");
+    throw error;
   }
 };

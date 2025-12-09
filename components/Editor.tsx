@@ -18,6 +18,7 @@ interface EditorProps {
   themeColor: string;
   setThemeColor: (color: string) => void;
   onShowToast: (message: string, type: 'success' | 'error') => void;
+  apiKey: string;
 }
 
 const Editor: React.FC<EditorProps> = ({ 
@@ -33,7 +34,8 @@ const Editor: React.FC<EditorProps> = ({
   setVocabLevel,
   themeColor,
   setThemeColor,
-  onShowToast
+  onShowToast,
+  apiKey
 }) => {
   const [activeTab, setActiveTab] = useState<'visual' | 'design' | 'json' | 'import'>('visual');
   const [rawText, setRawText] = useState('');
@@ -97,11 +99,11 @@ const Editor: React.FC<EditorProps> = ({
     setSuggestions([]);
     
     try {
-        const phrases = await generateExperienceSuggestions(role);
+        const phrases = await generateExperienceSuggestions(role, apiKey);
         setSuggestions(phrases.map(text => ({ text })));
     } catch (e) {
         console.error(e);
-        onShowToast("Failed to generate suggestions. Please check your connection and try again.", "error");
+        onShowToast((e as Error).message || "Failed to generate suggestions.", "error");
         setActiveSuggestionIndex(null);
     } finally {
         setIsGeneratingPhrases(false);
@@ -168,7 +170,6 @@ const Editor: React.FC<EditorProps> = ({
                 <div className="relative flex-1 group">
                   <select 
                     className="w-full appearance-none bg-gray-700/50 border border-gray-600 hover:border-brand-400 text-sm rounded px-3 py-2 outline-none focus:ring-1 focus:ring-brand-500 transition-all cursor-pointer"
-                    // In a real app, bind this to resumeData.status
                     defaultValue="draft"
                   >
                     <option value="draft">Drafting</option>
@@ -273,284 +274,4 @@ const Editor: React.FC<EditorProps> = ({
                     />
                     <div className="flex-1 relative">
                         <input
-                        className="w-full p-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-sm focus:ring-2 focus:ring-brand-500 outline-none"
-                        value={exp.role}
-                        onChange={(e) => {
-                            const newExp = [...resumeData.experience];
-                            newExp[idx].role = e.target.value;
-                            setResumeData({ ...resumeData, experience: newExp });
-                        }}
-                        placeholder="Job Role (e.g. Waiter)"
-                        />
-                        {/* AI Trigger Button */}
-                        {exp.role.length > 2 && (
-                            <button
-                                onClick={() => handleFetchSuggestions(idx, exp.role)}
-                                className="absolute right-1 top-1 p-1.5 text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-900 rounded-md transition-colors"
-                                title="Get AI suggestions for this role"
-                            >
-                                <Sparkles size={16} />
-                            </button>
-                        )}
-                    </div>
-                  </div>
-
-                  <div className="flex gap-2 mb-3">
-                     <input
-                      className="flex-1 p-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-sm outline-none focus:ring-2 focus:ring-brand-500"
-                      value={exp.start}
-                      onChange={(e) => {
-                        const newExp = [...resumeData.experience];
-                        newExp[idx].start = e.target.value;
-                        setResumeData({ ...resumeData, experience: newExp });
-                      }}
-                      placeholder="Start (e.g. 2021)"
-                    />
-                    <input
-                      className="flex-1 p-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-sm outline-none focus:ring-2 focus:ring-brand-500"
-                      value={exp.end}
-                      onChange={(e) => {
-                        const newExp = [...resumeData.experience];
-                        newExp[idx].end = e.target.value;
-                        setResumeData({ ...resumeData, experience: newExp });
-                      }}
-                      placeholder="End (e.g. Present)"
-                    />
-                  </div>
-
-                  {/* AI Suggestions Panel */}
-                  {activeSuggestionIndex === idx && (
-                    <div className="mb-3 p-3 bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800 rounded-lg animate-in slide-in-from-top-2 duration-200">
-                        <div className="flex justify-between items-center mb-2">
-                            <h4 className="text-xs font-bold text-brand-700 dark:text-brand-300 flex items-center gap-2">
-                                <Lightbulb size={12} />
-                                AI Suggestions for "{exp.role}"
-                            </h4>
-                            <button 
-                                onClick={() => setActiveSuggestionIndex(null)}
-                                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
-                            >
-                                <X size={14} />
-                            </button>
-                        </div>
-                        
-                        {isGeneratingPhrases ? (
-                            <div className="py-4 text-center text-xs text-gray-500 flex items-center justify-center gap-2">
-                                <RefreshCw className="animate-spin" size={14} /> Generating professional phrases...
-                            </div>
-                        ) : suggestions.length > 0 ? (
-                            <div className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar pr-1">
-                                {suggestions.map((sug, sIdx) => (
-                                    <button
-                                        key={sIdx}
-                                        onClick={() => addSuggestionToDescription(idx, sug.text)}
-                                        className="w-full text-left p-2 text-xs hover:bg-white dark:hover:bg-gray-800 border border-transparent hover:border-brand-200 dark:hover:border-brand-700 rounded transition-all group flex items-start gap-2"
-                                    >
-                                        <div className="mt-0.5 text-green-500 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <Plus size={12} />
-                                        </div>
-                                        <span className="text-gray-700 dark:text-gray-300 leading-relaxed">{sug.text}</span>
-                                    </button>
-                                ))}
-                            </div>
-                        ) : (
-                            <p className="text-xs text-gray-500">No suggestions found. Check your API connection.</p>
-                        )}
-                    </div>
-                  )}
-
-                  <textarea
-                    rows={4}
-                    className="w-full p-3 text-xs leading-relaxed bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded outline-none focus:ring-2 focus:ring-brand-500"
-                    value={exp.description.join('\n')}
-                    onChange={(e) => {
-                       const newExp = [...resumeData.experience];
-                       newExp[idx].description = e.target.value.split('\n');
-                       setResumeData({ ...resumeData, experience: newExp });
-                    }}
-                    placeholder="• Responsibilities and achievements..."
-                  />
-                  <div className="flex justify-end mt-1">
-                     <button 
-                        onClick={() => {
-                            const newExp = [...resumeData.experience];
-                            newExp.splice(idx, 1);
-                            setResumeData({ ...resumeData, experience: newExp });
-                        }}
-                        className="text-[10px] text-red-500 hover:text-red-600 font-medium"
-                     >
-                        Remove Role
-                     </button>
-                  </div>
-                </div>
-              ))}
-            </section>
-            
-            <hr className="border-gray-200 dark:border-gray-700" />
-
-            {/* Job Description */}
-            <section>
-              <div className="flex items-center gap-2 mb-2">
-                <FileText size={16} className="text-brand-600"/>
-                <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100">Target Job Description</h3>
-              </div>
-              <p className="text-xs text-gray-500 mb-2">Paste the JD here to unlock AI grading and optimization.</p>
-              <textarea
-                value={jobDescription}
-                onChange={(e) => setJobDescription(e.target.value)}
-                placeholder="Paste the full job description here..."
-                className="w-full h-32 p-3 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 focus:ring-2 focus:ring-brand-500 outline-none resize-none mb-3"
-              />
-              <button
-                onClick={onAnalyze}
-                disabled={isAnalyzing || !jobDescription.trim()}
-                className="w-full py-2.5 bg-gray-900 dark:bg-brand-600 hover:bg-gray-800 dark:hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition flex items-center justify-center gap-2 text-sm"
-              >
-                {isAnalyzing ? <RefreshCw className="animate-spin" size={16} /> : <Sparkles size={16} />}
-                {isAnalyzing ? 'Analyzing...' : 'Analyze Match'}
-              </button>
-            </section>
-          </div>
-        )}
-
-        {activeTab === 'design' && (
-          <div className="space-y-6">
-            <section>
-              <div className="flex items-center gap-2 mb-3">
-                <Layout size={18} className="text-brand-600" />
-                <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100">Structure & Style</h3>
-              </div>
-              
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Vocabulary Level
-                  </label>
-                  <select
-                    value={vocabLevel}
-                    onChange={(e) => setVocabLevel(e.target.value as any)}
-                    className="w-full p-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm focus:ring-2 focus:ring-brand-500 outline-none"
-                  >
-                    <option value="simple">High-school (Simple)</option>
-                    <option value="professional">Professional (Polished)</option>
-                  </select>
-                  <p className="text-xs text-gray-500 mt-1">Changes section titles (e.g. "Work Experience" vs "Professional Experience").</p>
-                </div>
-
-                <hr className="border-gray-200 dark:border-gray-700" />
-
-                <div>
-                   <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Resume Photo
-                  </label>
-                  <div className="flex items-start gap-4">
-                    {resumeData.contact.photo ? (
-                      <div className="relative group">
-                        <img 
-                          src={resumeData.contact.photo} 
-                          alt="Resume" 
-                          className="w-16 h-16 rounded-full object-cover border border-gray-200"
-                        />
-                        <button 
-                          onClick={() => updateContact('photo', '')}
-                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                        >
-                          <X size={12} />
-                        </button>
-                      </div>
-                    ) : (
-                      <label className="w-16 h-16 flex items-center justify-center border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:border-brand-500 hover:bg-brand-50 dark:hover:bg-gray-700 transition">
-                         <Upload size={20} className="text-gray-400" />
-                         <input type="file" className="hidden" accept="image/*" onChange={handlePhotoUpload} />
-                      </label>
-                    )}
-                    <div>
-                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Profile Picture</p>
-                        <p className="text-xs text-gray-500">Optional. JPG or PNG, max 2MB.</p>
-                    </div>
-                  </div>
-                </div>
-
-                <hr className="border-gray-200 dark:border-gray-700" />
-
-                <div>
-                   <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Accent Color
-                  </label>
-                  <div className="flex gap-2 flex-wrap">
-                    {THEME_COLORS.map((c) => (
-                        <button
-                            key={c}
-                            onClick={() => setThemeColor(c)}
-                            className={`w-8 h-8 rounded-full border-2 ${themeColor === c ? 'border-gray-900 dark:border-white scale-110' : 'border-transparent hover:scale-110'} transition-all shadow-sm`}
-                            style={{ backgroundColor: c }}
-                        />
-                    ))}
-                    <button 
-                        onClick={randomizeTheme}
-                        className="w-8 h-8 rounded-full border border-gray-300 dark:border-gray-600 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                        title="Random Color"
-                    >
-                        <RefreshCw size={14} className="text-gray-500" />
-                    </button>
-                  </div>
-                </div>
-
-              </div>
-            </section>
-          </div>
-        )}
-
-        {activeTab === 'json' && (
-          <div className="space-y-4">
-             <div className="flex items-center gap-2 mb-2">
-                <FileText size={18} className="text-brand-600" />
-                <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100">JSON Data</h3>
-              </div>
-            <p className="text-xs text-gray-500">
-              Directly edit the JSON data structure. Useful for debugging or bulk updates.
-            </p>
-            <textarea
-              value={JSON.stringify(resumeData, null, 2)}
-              onChange={handleJsonChange}
-              className="w-full h-96 p-3 text-xs font-mono bg-gray-900 text-green-400 rounded-lg border border-gray-700 outline-none focus:border-brand-500"
-            />
-            {jsonError && (
-              <div className="p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-200 text-xs rounded border border-red-200 dark:border-red-800">
-                Error: {jsonError}
-              </div>
-            )}
-          </div>
-        )}
-
-        {activeTab === 'import' && (
-          <div className="space-y-4">
-             <div className="flex items-center gap-2 mb-2">
-                <Wand2 size={18} className="text-brand-600" />
-                <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100">Smart Import</h3>
-              </div>
-            <p className="text-xs text-gray-500">
-              Paste your raw resume text (from LinkedIn, PDF copy-paste, or old resume) and let AI structure it for you.
-            </p>
-            <textarea
-              value={rawText}
-              onChange={(e) => setRawText(e.target.value)}
-              placeholder="Paste raw resume text here..."
-              className="w-full h-64 p-3 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 focus:ring-2 focus:ring-brand-500 outline-none resize-none"
-            />
-            <button
-              onClick={handleImport}
-              disabled={isProcessing || !rawText.trim()}
-              className="w-full py-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition flex items-center justify-center gap-2"
-            >
-              {isProcessing ? <RefreshCw className="animate-spin" size={16} /> : <Wand2 size={16} />}
-              {isProcessing ? 'Parsing with AI...' : 'Parse Resume'}
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
-
-export default Editor;
+                        className="w-full p-2 bg-white dark:bg-

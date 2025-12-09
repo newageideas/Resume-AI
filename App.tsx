@@ -5,7 +5,7 @@ import ResumePreview from './components/ResumePreview';
 import AnalysisPanel from './components/AnalysisPanel';
 import ResumePDF from './components/ResumePDF';
 import { parseResumeFromText, analyzeResumeFit } from './services/geminiService';
-import { Download, Moon, Sun, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Download, Moon, Sun, Loader2, AlertCircle, CheckCircle2, Settings, Key } from 'lucide-react';
 import { PDFDownloadLink } from '@react-pdf/renderer';
 
 export type VocabLevel = 'simple' | 'professional';
@@ -38,6 +38,10 @@ export default function App() {
   // New features state
   const [vocabLevel, setVocabLevel] = useState<VocabLevel>('professional');
   const [themeColor, setThemeColor] = useState<string>(THEME_COLORS[0]);
+  
+  // API Key State
+  const [apiKey, setApiKey] = useState(() => localStorage.getItem('gemini_api_key') || '');
+  const [showSettings, setShowSettings] = useState(false);
 
   // Dark mode effect
   useEffect(() => {
@@ -48,6 +52,11 @@ export default function App() {
     }
   }, [darkMode]);
 
+  // Save API Key to local storage
+  useEffect(() => {
+    localStorage.setItem('gemini_api_key', apiKey);
+  }, [apiKey]);
+
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 4000);
@@ -56,13 +65,16 @@ export default function App() {
   const handleParse = async (text: string) => {
     setIsParsing(true);
     try {
-      const data = await parseResumeFromText(text);
+      const data = await parseResumeFromText(text, apiKey);
       if (data) {
         setResumeData(data);
         showToast("Resume parsed successfully!", "success");
       }
     } catch (error) {
       showToast((error as Error).message || "Failed to parse resume.", "error");
+      if ((error as Error).message.includes("API Key")) {
+        setShowSettings(true);
+      }
     } finally {
       setIsParsing(false);
     }
@@ -75,13 +87,16 @@ export default function App() {
     }
     setIsAnalyzing(true);
     try {
-      const result = await analyzeResumeFit(resumeData, jobDescription);
+      const result = await analyzeResumeFit(resumeData, jobDescription, apiKey);
       if (result) {
         setAnalysisResult(result);
         showToast("Analysis complete!", "success");
       }
     } catch (error) {
       showToast((error as Error).message || "Analysis failed.", "error");
+      if ((error as Error).message.includes("API Key")) {
+        setShowSettings(true);
+      }
     } finally {
       setIsAnalyzing(false);
     }
@@ -97,13 +112,63 @@ export default function App() {
         </div>
       )}
 
+      {/* Settings Modal */}
+      {showSettings && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-6 w-full max-w-md border border-gray-200 dark:border-gray-700 animate-in zoom-in-95">
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+              <Settings className="text-brand-600" /> App Settings
+            </h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Gemini API Key
+                </label>
+                <div className="relative">
+                  <Key className="absolute left-3 top-2.5 text-gray-400" size={16} />
+                  <input 
+                    type="password"
+                    value={apiKey}
+                    onChange={(e) => setApiKey(e.target.value)}
+                    placeholder="Enter your Gemini API Key"
+                    className="w-full pl-9 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-900 text-sm focus:ring-2 focus:ring-brand-500 outline-none"
+                  />
+                </div>
+                <p className="text-xs text-gray-500 mt-2">
+                  Key is stored locally in your browser. Leave empty if you are using environment variables.
+                  <br />
+                  <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-brand-600 hover:underline">
+                    Get an API Key here
+                  </a>
+                </p>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-6">
+              <button 
+                onClick={() => setShowSettings(false)}
+                className="px-4 py-2 text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 rounded-lg"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <header className="h-16 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-6 shrink-0 z-10">
         <div className="flex items-center gap-2">
             <div className="w-8 h-8 bg-brand-600 rounded-lg flex items-center justify-center text-white font-bold">AI</div>
             <h1 className="text-xl font-bold text-gray-900 dark:text-white">IMA FRee REsume</h1>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 md:gap-4">
+            <button 
+              onClick={() => setShowSettings(true)}
+              className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition"
+              title="Settings"
+            >
+              <Settings size={20} />
+            </button>
             <button 
                 onClick={() => setDarkMode(!darkMode)}
                 className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition"
@@ -121,7 +186,8 @@ export default function App() {
                 return (
                   <>
                     {loading ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
-                    <span>{loading ? 'Loading Document...' : 'Download PDF'}</span>
+                    <span className="hidden md:inline">{loading ? 'Loading...' : 'Download PDF'}</span>
+                    <span className="md:hidden">PDF</span>
                   </>
                 );
               }}
@@ -148,6 +214,7 @@ export default function App() {
                     themeColor={themeColor}
                     setThemeColor={setThemeColor}
                     onShowToast={showToast}
+                    apiKey={apiKey}
                 />
             </div>
 
