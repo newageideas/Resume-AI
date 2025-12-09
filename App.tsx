@@ -116,12 +116,15 @@ export default function App() {
               fileName={`${resumeData.fullName.replace(/\s+/g, '_')}_Resume.pdf`}
               className="flex items-center gap-2 px-4 py-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-lg font-medium hover:opacity-90 transition no-underline"
             >
-              {({ blob, url, loading, error }) => (
-                <>
-                  {loading ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
-                  <span>{loading ? 'Loading Document...' : 'Download PDF'}</span>
-                </>
-              )}
+              {({ blob, url, loading, error }) => {
+                if (error) return <span className="text-red-400 text-xs">Error</span>;
+                return (
+                  <>
+                    {loading ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
+                    <span>{loading ? 'Loading Document...' : 'Download PDF'}</span>
+                  </>
+                );
+              }}
             </PDFDownloadLink>
         </div>
       </header>
