@@ -1,0 +1,380 @@
+import React, { useState } from 'react';
+import { ResumeData } from '../types';
+import { FileText, Wand2, RefreshCw, Sparkles, Palette, Upload, User, Layout } from 'lucide-react';
+import { VocabLevel, THEME_COLORS } from '../App';
+
+interface EditorProps {
+  resumeData: ResumeData;
+  setResumeData: (data: ResumeData) => void;
+  jobDescription: string;
+  setJobDescription: (jd: string) => void;
+  onParse: (text: string) => void;
+  isProcessing: boolean;
+  onAnalyze: () => void;
+  isAnalyzing: boolean;
+  vocabLevel: VocabLevel;
+  setVocabLevel: (level: VocabLevel) => void;
+  themeColor: string;
+  setThemeColor: (color: string) => void;
+}
+
+const Editor: React.FC<EditorProps> = ({ 
+  resumeData, 
+  setResumeData, 
+  jobDescription, 
+  setJobDescription, 
+  onParse,
+  isProcessing,
+  onAnalyze,
+  isAnalyzing,
+  vocabLevel,
+  setVocabLevel,
+  themeColor,
+  setThemeColor
+}) => {
+  const [activeTab, setActiveTab] = useState<'visual' | 'design' | 'json' | 'import'>('visual');
+  const [rawText, setRawText] = useState('');
+  const [jsonError, setJsonError] = useState<string | null>(null);
+
+  const handleJsonChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const val = e.target.value;
+    try {
+      const parsed = JSON.parse(val);
+      setResumeData(parsed);
+      setJsonError(null);
+    } catch (err) {
+      setJsonError((err as Error).message);
+    }
+  };
+
+  const handleImport = () => {
+    if (rawText.trim()) {
+      onParse(rawText);
+    }
+  };
+
+  const updateField = (section: keyof ResumeData, value: any) => {
+    setResumeData({ ...resumeData, [section]: value });
+  };
+
+  const updateContact = (field: string, value: string) => {
+    setResumeData({
+      ...resumeData,
+      contact: { ...resumeData.contact, [field]: value }
+    });
+  };
+
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        if (evt.target?.result) {
+          updateContact('photo', evt.target.result as string);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const randomizeTheme = () => {
+    const randomColor = THEME_COLORS[Math.floor(Math.random() * THEME_COLORS.length)];
+    setThemeColor(randomColor);
+  };
+
+  return (
+    <div className="flex flex-col h-full bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+      {/* Tabs */}
+      <div className="flex border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
+        <button
+          onClick={() => setActiveTab('visual')}
+          className={`flex-1 py-3 text-sm font-medium whitespace-nowrap px-2 ${activeTab === 'visual' ? 'text-brand-600 border-b-2 border-brand-600 bg-brand-50 dark:bg-gray-700' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'}`}
+        >
+          Editor
+        </button>
+         <button
+          onClick={() => setActiveTab('design')}
+          className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-1 whitespace-nowrap px-2 ${activeTab === 'design' ? 'text-brand-600 border-b-2 border-brand-600 bg-brand-50 dark:bg-gray-700' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'}`}
+        >
+          <Palette size={14} /> Design
+        </button>
+        <button
+          onClick={() => setActiveTab('json')}
+          className={`flex-1 py-3 text-sm font-medium whitespace-nowrap px-2 ${activeTab === 'json' ? 'text-brand-600 border-b-2 border-brand-600 bg-brand-50 dark:bg-gray-700' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'}`}
+        >
+          JSON
+        </button>
+        <button
+          onClick={() => setActiveTab('import')}
+          className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-1 whitespace-nowrap px-2 ${activeTab === 'import' ? 'text-brand-600 border-b-2 border-brand-600 bg-brand-50 dark:bg-gray-700' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'}`}
+        >
+          <Wand2 size={14} /> Import
+        </button>
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+        {activeTab === 'visual' && (
+          <div className="space-y-6">
+            {/* Basic Info */}
+            <section>
+              <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Basics</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-xs text-gray-500">Full Name</label>
+                  <input
+                    type="text"
+                    value={resumeData.fullName}
+                    onChange={(e) => updateField('fullName', e.target.value)}
+                    className="w-full p-2 rounded border border-gray-300 dark:border-gray-600 bg-transparent text-sm focus:ring-2 focus:ring-brand-500 outline-none"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-gray-500">Job Title</label>
+                  <input
+                    type="text"
+                    value={resumeData.title}
+                    onChange={(e) => updateField('title', e.target.value)}
+                    className="w-full p-2 rounded border border-gray-300 dark:border-gray-600 bg-transparent text-sm focus:ring-2 focus:ring-brand-500 outline-none"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                <div className="space-y-1">
+                  <label className="text-xs text-gray-500">Email</label>
+                  <input
+                    type="text"
+                    value={resumeData.contact.email}
+                    onChange={(e) => updateContact('email', e.target.value)}
+                    className="w-full p-2 rounded border border-gray-300 dark:border-gray-600 bg-transparent text-sm focus:ring-2 focus:ring-brand-500 outline-none"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-gray-500">Phone</label>
+                  <input
+                    type="text"
+                    value={resumeData.contact.phone}
+                    onChange={(e) => updateContact('phone', e.target.value)}
+                    className="w-full p-2 rounded border border-gray-300 dark:border-gray-600 bg-transparent text-sm focus:ring-2 focus:ring-brand-500 outline-none"
+                  />
+                </div>
+              </div>
+              <div className="mt-4 space-y-1">
+                 <label className="text-xs text-gray-500">Summary</label>
+                 <textarea
+                   rows={4}
+                   value={resumeData.summary}
+                   onChange={(e) => updateField('summary', e.target.value)}
+                   className="w-full p-2 rounded border border-gray-300 dark:border-gray-600 bg-transparent text-sm focus:ring-2 focus:ring-brand-500 outline-none"
+                 />
+              </div>
+            </section>
+
+             <hr className="border-gray-200 dark:border-gray-700" />
+
+            {/* Experience */}
+            <section>
+              <div className="flex justify-between items-center mb-3">
+                 <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Experience</h3>
+              </div>
+              {resumeData.experience.map((exp, idx) => (
+                <div key={idx} className="mb-4 p-3 border border-gray-200 dark:border-gray-700 rounded bg-gray-50 dark:bg-gray-750/50">
+                  <div className="flex gap-2 mb-2">
+                    <input
+                      className="flex-1 p-1 bg-transparent border-b border-transparent hover:border-gray-300 focus:border-brand-500 outline-none font-medium text-sm"
+                      value={exp.company}
+                      onChange={(e) => {
+                        const newExp = [...resumeData.experience];
+                        newExp[idx].company = e.target.value;
+                        updateField('experience', newExp);
+                      }}
+                      placeholder="Company"
+                    />
+                    <input
+                      className="flex-1 p-1 bg-transparent border-b border-transparent hover:border-gray-300 focus:border-brand-500 outline-none text-sm"
+                      value={exp.role}
+                      onChange={(e) => {
+                        const newExp = [...resumeData.experience];
+                        newExp[idx].role = e.target.value;
+                        updateField('experience', newExp);
+                      }}
+                      placeholder="Role"
+                    />
+                  </div>
+                  <textarea
+                    rows={3}
+                    className="w-full p-2 text-xs bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded outline-none focus:ring-1 focus:ring-brand-500"
+                    value={exp.description.join('\n')}
+                    onChange={(e) => {
+                       const newExp = [...resumeData.experience];
+                       newExp[idx].description = e.target.value.split('\n');
+                       updateField('experience', newExp);
+                    }}
+                    placeholder="Bullet points (one per line)"
+                  />
+                </div>
+              ))}
+            </section>
+            
+            <hr className="border-gray-200 dark:border-gray-700" />
+
+            {/* Job Description */}
+            <section>
+              <div className="flex items-center gap-2 mb-2">
+                <FileText size={16} className="text-brand-600"/>
+                <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100">Target Job Description</h3>
+              </div>
+              <p className="text-xs text-gray-500 mb-2">Paste the JD here to unlock AI grading and optimization.</p>
+              <textarea
+                value={jobDescription}
+                onChange={(e) => setJobDescription(e.target.value)}
+                placeholder="Paste the full job description here..."
+                className="w-full h-32 p-3 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 focus:ring-2 focus:ring-brand-500 outline-none resize-none mb-3"
+              />
+              <button
+                onClick={onAnalyze}
+                disabled={isAnalyzing || !jobDescription.trim()}
+                className="w-full py-2.5 bg-gray-900 dark:bg-brand-600 hover:bg-gray-800 dark:hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition flex items-center justify-center gap-2 text-sm"
+              >
+                {isAnalyzing ? <RefreshCw className="animate-spin" size={16} /> : <Sparkles size={16} />}
+                {isAnalyzing ? 'Analyzing...' : 'Analyze Match'}
+              </button>
+            </section>
+          </div>
+        )}
+
+        {activeTab === 'design' && (
+          <div className="space-y-6">
+            <section>
+              <div className="flex items-center gap-2 mb-3">
+                <Layout size={18} className="text-brand-600" />
+                <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100">Structure & Style</h3>
+              </div>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Vocabulary Level
+                  </label>
+                  <select
+                    value={vocabLevel}
+                    onChange={(e) => setVocabLevel(e.target.value as any)}
+                    className="w-full p-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm focus:ring-2 focus:ring-brand-500 outline-none"
+                  >
+                    <option value="simple">High-school (Simple)</option>
+                    <option value="professional">Professional (Polished)</option>
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">Changes section titles (e.g. "Work Experience" vs "Professional Experience").</p>
+                </div>
+
+                <hr className="border-gray-200 dark:border-gray-700" />
+
+                <div>
+                   <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Resume Photo
+                  </label>
+                  <div className="flex items-start gap-4">
+                    {resumeData.contact.photo ? (
+                      <div className="relative group">
+                        <img 
+                          src={resumeData.contact.photo} 
+                          alt="Resume" 
+                          className="w-16 h-16 rounded-full object-cover border border-gray-200"
+                        />
+                        <button 
+                          onClick={() => updateContact('photo', '')}
+                          className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-400">
+                        <User size={24} />
+                      </div>
+                    )}
+                    <div className="flex-1">
+                      <label className="cursor-pointer inline-flex items-center gap-2 px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-xs font-medium hover:bg-gray-50 dark:hover:bg-gray-600 transition">
+                        <Upload size={14} />
+                        Upload Photo
+                        <input type="file" className="hidden" accept="image/*" onChange={handlePhotoUpload} />
+                      </label>
+                      <p className="text-xs text-gray-500 mt-1">Recommended: Square JPG/PNG</p>
+                    </div>
+                  </div>
+                </div>
+
+                <hr className="border-gray-200 dark:border-gray-700" />
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Accent Color
+                  </label>
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {THEME_COLORS.map(color => (
+                      <button
+                        key={color}
+                        onClick={() => setThemeColor(color)}
+                        className={`w-8 h-8 rounded-full border-2 transition-transform hover:scale-110 ${themeColor === color ? 'border-gray-900 dark:border-white scale-110' : 'border-transparent'}`}
+                        style={{ backgroundColor: color }}
+                      />
+                    ))}
+                  </div>
+                  <button
+                    onClick={randomizeTheme}
+                    className="w-full py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition flex items-center justify-center gap-2"
+                  >
+                    <RefreshCw size={14} />
+                    Randomize Style
+                  </button>
+                </div>
+
+              </div>
+            </section>
+          </div>
+        )}
+
+        {activeTab === 'json' && (
+          <div className="h-full flex flex-col">
+            <p className="text-xs text-gray-500 mb-2">Directly edit the data structure.</p>
+            <textarea
+              className="flex-1 w-full p-4 font-mono text-xs bg-gray-900 text-gray-200 rounded-lg outline-none resize-none"
+              value={JSON.stringify(resumeData, null, 2)}
+              onChange={handleJsonChange}
+            />
+            {jsonError && (
+              <div className="mt-2 p-2 text-xs text-red-600 bg-red-50 rounded border border-red-200">
+                Invalid JSON: {jsonError}
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'import' && (
+          <div className="flex flex-col h-full">
+            <div className="flex items-center gap-2 mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 rounded-lg text-sm">
+              <Wand2 size={18} />
+              <p>Paste your old resume text or LinkedIn export below. Gemini AI will restructure it.</p>
+            </div>
+            <textarea
+              className="flex-1 w-full p-4 text-sm bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg outline-none resize-none focus:ring-2 focus:ring-brand-500"
+              placeholder="Paste raw resume text here..."
+              value={rawText}
+              onChange={(e) => setRawText(e.target.value)}
+            />
+            <button
+              onClick={handleImport}
+              disabled={isProcessing || !rawText.trim()}
+              className="mt-4 w-full py-3 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition flex items-center justify-center gap-2"
+            >
+              {isProcessing ? <RefreshCw className="animate-spin" size={18} /> : <Wand2 size={18} />}
+              {isProcessing ? 'Processing...' : 'Parse with AI'}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default Editor;
